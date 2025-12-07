@@ -130,6 +130,61 @@ python api/main.py
 }
 ```
 
+### cURL Usage Examples
+
+**Basic Scraping Request:**
+```bash
+curl -X POST "http://localhost:8001/scrape" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/article",
+    "include_raw_text": true,
+    "include_metadata": true
+  }'
+```
+
+**Batch Scraping Request:**
+```bash
+curl -X POST "http://localhost:8001/batch-scrape" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": [
+      "https://example.com/article1",
+      "https://example.com/article2"
+    ],
+    "include_raw_text": true,
+    "include_metadata": true
+  }'
+```
+
+**Authentication and Token Usage:**
+```bash
+# Get authentication token
+curl -X POST "http://localhost:8001/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=testuser&password=testpassword"
+
+# Use token for authenticated requests
+curl -X POST "http://localhost:8001/scrape" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "url": "https://example.com/article",
+    "include_raw_text": true,
+    "include_metadata": true
+  }'
+```
+
+**Health Check:**
+```bash
+curl -X GET "http://localhost:8001/health"
+```
+
+**Root Endpoint:**
+```bash
+curl -X GET "http://localhost:8001/"
+```
+
 ## Dependencies
 
 - Python 3.12+
@@ -152,7 +207,7 @@ python api/main.py
 python -m pytest tests/
 
 # Run with hot reload (development)
-uvicorn api.main:app --reload
+uvicorn api.main:app --reload --port 8001
 ```
 
 ## License
