@@ -20,6 +20,7 @@ def test_scraper_error_handling():
     assert result_data is None
     assert result_text is not None
 
+@pytest.mark.slow
 def test_api_error_scenarios():
     """Test various error scenarios in the API"""
     # Test with malformed URL
@@ -111,6 +112,7 @@ def test_api_batch_processing_placeholder():
     assert response.status_code == 200
     # TODO: Add actual batch processing tests when implemented
 
+@pytest.mark.slow
 def test_scraper_network_errors():
     """Test network error handling in scraper"""
     with patch('trafilatura.fetch_url') as mock_fetch, \
@@ -126,6 +128,7 @@ def test_scraper_network_errors():
         assert result_text is not None
         assert "error" in result_text.lower()
 
+@pytest.mark.slow
 def test_scraper_timeout_handling():
     """Test timeout handling in scraper"""
     with patch('trafilatura.fetch_url') as mock_fetch, \

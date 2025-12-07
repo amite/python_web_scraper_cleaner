@@ -141,6 +141,7 @@ def test_scrape_endpoint_without_raw_text(mock_scraper):
     assert data["success"] is True
     assert data["text_content"] is None  # Should be None when not requested
 
+@pytest.mark.slow
 def test_scrape_endpoint_validation():
     """Test request validation"""
     # Test missing URL

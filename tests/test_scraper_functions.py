@@ -115,6 +115,7 @@ def test_scrape_article_with_trafilatura_success(mock_trafilatura):
     # Check that timestamps are present
     assert "scraped_at" in result_data
 
+@pytest.mark.slow
 def test_scrape_article_with_trafilatura_failure(mock_trafilatura):
     """Test failed scraping scenario"""
     mock_fetch, mock_extract = mock_trafilatura
