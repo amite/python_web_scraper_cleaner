@@ -68,6 +68,12 @@ spec.loader.exec_module(trafilatura_scraper)
    - Implement request validation
    - Add rate limiting
 
+3. **Deploy trafilatura-scraper-api to google cloud run**
+   - Set up deployment environment
+   - Configure CI/CD pipeline
+   - Implement monitoring and logging
+
+
 3. **Performance Optimization**
    - Evaluate caching strategies
    - Optimize network requests
