@@ -4,6 +4,7 @@ import os
 import re
 import logging
 from datetime import datetime
+import requests
 
 def scrape_article_with_trafilatura(url):
     """
@@ -13,13 +14,27 @@ def scrape_article_with_trafilatura(url):
     try:
         logging.info(f"Starting scrape job for URL: {url}")
 
-        # Download the webpage
+        # Set up headers with User-Agent
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+
+        # Download the webpage with custom headers
         try:
+            # First try with trafilatura's built-in fetch
             downloaded = trafilatura.fetch_url(url)
+
+            # If trafilatura fails, try with requests library
             if not downloaded:
-                error_msg = "Could not download the webpage"
-                logging.error(f"Download failed for {url}: {error_msg}")
-                return None, error_msg
+                try:
+                    response = requests.get(url, headers=headers, timeout=30)
+                    response.raise_for_status()
+                    downloaded = response.text
+                    logging.info(f"Downloaded {url} using requests with custom User-Agent")
+                except Exception as e:
+                    error_msg = f"Both trafilatura and requests failed to download: {str(e)}"
+                    logging.error(f"Download failed for {url}: {error_msg}")
+                    return None, error_msg
         except Exception as e:
             error_msg = f"Download error: {str(e)}"
             logging.error(f"Download exception for {url}: {error_msg}")
@@ -169,7 +184,13 @@ def main():
     # Setup logging
     setup_logging()
 
-    url = "https://scroll.in/latest/1081286/madhya-pradesh-nine-arrested-after-communal-clashes-in-guna"
+    # Get URL from user input
+    url = input("Enter the URL to scrape: ").strip()
+    if not url:
+        print("Error: No URL provided")
+        logging.error("No URL provided by user")
+        return
+
     job_id = f"job_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     logging.info(f"Starting job {job_id} for URL: {url}")
