@@ -4,27 +4,6 @@ import os
 import re
 from datetime import datetime
 
-def slugify(text):
-    """Convert text to a URL/filename slug"""
-    if not text:
-        return "untitled"
-
-    # Convert to lowercase
-    slug = text.lower()
-
-    # Remove special characters and replace spaces with hyphens
-    slug = re.sub(r'[^\w\s-]', '', slug)  # Remove special chars
-    slug = re.sub(r'[\s]+', '-', slug)     # Replace spaces with hyphens
-    slug = re.sub(r'[-]+', '-', slug)      # Remove duplicate hyphens
-
-    # Remove leading/trailing hyphens
-    slug = slug.strip('-')
-
-    # Limit length to reasonable filename length
-    slug = slug[:80]
-
-    return slug
-
 def scrape_article_with_trafilatura(url):
     """
     Scrape article using Trafilatura library
@@ -44,8 +23,8 @@ def scrape_article_with_trafilatura(url):
             with_metadata=True,
             include_comments=False,
             include_tables=True,
-            include_images=True,  # Set to True if you want image URLs
-            include_links=True
+            include_images=False,  # Set to True if you want image URLs
+            include_links=False
         )
         
         if not result_json:
@@ -87,33 +66,63 @@ def scrape_article_with_trafilatura(url):
     except Exception as e:
         return None, f"Error: {str(e)}"
 
+def slugify(text):
+    """Convert text to a URL-friendly slug"""
+    if not text:
+        return "untitled"
+
+    # Convert to lowercase
+    slug = text.lower()
+
+    # Remove special characters and replace spaces with underscores
+    slug = re.sub(r'[^\w\s-]', '', slug)  # Remove special chars
+    slug = re.sub(r'[\s]+', '_', slug)    # Replace spaces with underscores
+    slug = re.sub(r'[-]+', '_', slug)     # Replace multiple hyphens with single underscore
+
+    # Remove leading/trailing underscores
+    slug = slug.strip('_')
+
+    # Limit length to reasonable size
+    if len(slug) > 100:
+        slug = slug[:100]
+
+    return slug or "untitled"
+
 def format_article_markdown(data, text):
     """Format the article data into readable markdown"""
     markdown_parts = []
-    
+
     if data.get("title"):
         markdown_parts.append(f"# {data['title']}\n")
-    
+
     if data.get("author"):
         markdown_parts.append(f"**Author:** {data['author']}")
-    
+
     if data.get("date"):
         markdown_parts.append(f"**Published:** {data['date']}")
-    
+
     if data.get("sitename"):
         markdown_parts.append(f"**Source:** {data['sitename']}")
-    
+
     if data.get("description"):
         markdown_parts.append(f"\n## Summary\n{data['description']}\n")
-    
+
     if data.get("categories"):
-        markdown_parts.append(f"**Categories:** {', '.join(data['categories'])}")
-    
+        categories = data['categories']
+        # Ensure categories is a list
+        if isinstance(categories, str):
+            categories = [categories]
+        markdown_parts.append(f"**Categories:** {', '.join(categories)}")
+
     if data.get("tags"):
-        markdown_parts.append(f"**Tags:** {', '.join(data['tags'])}")
-    
+        tags = data['tags']
+        # Ensure tags is a list
+        if isinstance(tags, str):
+            tags = [tags]
+        markdown_parts.append(f"**Tags:** {', '.join(tags)}")
+
     markdown_parts.append(f"\n---\n\n## Article Content\n\n{text}")
-    
+
     return '\n'.join(markdown_parts)
 
 def main():
@@ -132,29 +141,30 @@ def main():
     # Create output directory
     os.makedirs('data', exist_ok=True)
 
-    # Create slugged filename from title
-    title_slug = slugify(article_data.get('title', 'untitled-article'))
+    # Generate slug from article title
+    article_title = article_data.get('title', 'untitled_article')
+    slug = slugify(article_title)
 
     # Save structured JSON
-    json_path = f'data/{title_slug}.json'
+    json_path = f'data/{slug}.json'
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(article_data, f, indent=2, ensure_ascii=False)
     print(f"✓ Structured JSON saved to {json_path}")
 
     # Save formatted markdown
     markdown_content = format_article_markdown(article_data, text_content)
-    md_path = f'data/{title_slug}.md'
+    md_path = f'data/{slug}.md'
     with open(md_path, 'w', encoding='utf-8') as f:
         f.write(markdown_content)
     print(f"✓ Formatted markdown saved to {md_path}")
 
     # Save plain text
-    txt_path = f'data/{title_slug}.txt'
+    txt_path = f'data/{slug}.txt'
     with open(txt_path, 'w', encoding='utf-8') as f:
-        if text_content is not None:
+        if text_content:
             f.write(text_content)
         else:
-            f.write("Error: Could not extract plain text content")
+            f.write("")
     print(f"✓ Plain text saved to {txt_path}")
     
     # Print summary
@@ -173,18 +183,16 @@ def main():
     if article_data.get('tags'):
         print(f"Tags: {', '.join(article_data['tags'])}")
     
-    text_length = len(text_content) if text_content else 0
-    word_count = len(text_content.split()) if text_content else 0
-    print(f"\nText length: {text_length} characters")
-    print(f"Word count: ~{word_count} words")
-    
-    print("\n" + "="*60)
-    print("PREVIEW (first 500 characters)")
-    print("="*60)
     if text_content:
+        print(f"\nText length: {len(text_content)} characters")
+        print(f"Word count: ~{len(text_content.split())} words")
+
+        print("\n" + "="*60)
+        print("PREVIEW (first 500 characters)")
+        print("="*60)
         print(text_content[:500] + "...\n")
     else:
-        print("Error: No text content available for preview\n")
+        print("\nNo text content available for preview")
 
 if __name__ == "__main__":
     main()
