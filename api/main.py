@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, status, Depends, Security
+from fastapi import FastAPI, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 import logging
 from typing import Optional, Dict, Any
 import importlib.util
@@ -10,6 +10,11 @@ import os
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from dotenv import load_dotenv
+import hashlib
+
+# Load environment variables from .env file for local development
+load_dotenv()
 
 # Import the scraper functions
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -26,19 +31,150 @@ trafilatura_scraper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(trafilatura_scraper)
 
 # Security configuration
-SECRET_KEY = "your-secret-key-here"  # In production, use a proper secret key from environment variables
+SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Password hashing
+# Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# Helper function to hash passwords securely
+def hash_password_for_bcrypt(password: str) -> str:
+    """
+    Hash password with SHA256 first to ensure it's under bcrypt's 72-byte limit.
+    This is a common pattern for bcrypt compatibility.
+    """
+    password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    return pwd_context.hash(password_hash)
+
+def verify_password_with_bcrypt(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verify password by hashing with SHA256 first, then checking against bcrypt hash.
+    """
+    password_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+    return pwd_context.verify(password_hash, hashed_password)
+
+# Pre-calculate test user hash at startup (avoid doing this on every request)
+TEST_USER_HASH = hash_password_for_bcrypt("testpassword")
+
+# Mock user database - In production, use a real database!
+FAKE_USERS_DB = {
+    "testuser": {
+        "username": "testuser",
+        "full_name": "Test User",
+        "email": "test@example.com",
+        "hashed_password": TEST_USER_HASH,
+        "disabled": False,
+    }
+}
+
+# Pydantic models
+class User(BaseModel):
+    username: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    disabled: Optional[bool] = None
+
+class UserInDB(User):
+    hashed_password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+class ScrapeRequest(BaseModel):
+    url: str
+    include_raw_text: bool = True
+    include_metadata: bool = True
+
+    def __init__(self, **data):
+        # Check boolean fields before Pydantic processes them
+        if 'include_raw_text' in data and not isinstance(data['include_raw_text'], bool):
+            raise ValueError('include_raw_text must be a boolean value (true/false), not a string or other type')
+        if 'include_metadata' in data and not isinstance(data['include_metadata'], bool):
+            raise ValueError('include_metadata must be a boolean value (true/false), not a string or other type')
+        super().__init__(**data)
+
+class ScrapeResponse(BaseModel):
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    text_content: Optional[str] = None
+    error: Optional[str] = None
+    url: str
+
+class BatchScrapeRequest(BaseModel):
+    urls: list[str]
+    include_raw_text: bool = True
+    include_metadata: bool = True
+
+    def __init__(self, **data):
+        # Check boolean fields before Pydantic processes them
+        if 'include_raw_text' in data and not isinstance(data['include_raw_text'], bool):
+            raise ValueError('include_raw_text must be a boolean value (true/false), not a string or other type')
+        if 'include_metadata' in data and not isinstance(data['include_metadata'], bool):
+            raise ValueError('include_metadata must be a boolean value (true/false), not a string or other type')
+        super().__init__(**data)
+
+# Authentication helper functions
+def get_user(db: dict, username: str) -> Optional[UserInDB]:
+    if username in db:
+        user_dict = db[username]
+        return UserInDB(**user_dict)
+    return None
+
+def authenticate_user(db: dict, username: str, password: str):
+    user = get_user(db, username)
+    if not user:
+        return False
+    if not verify_password_with_bcrypt(password, user.hashed_password):
+        return False
+    return user
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    
+    user = get_user(FAKE_USERS_DB, username=token_data.username) if token_data.username is not None else None
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+# Initialize FastAPI app
 app = FastAPI(
     title="Trafilatura Scraper API",
-    description="API for scraping articles using Trafilatura",
+    description="API for scraping articles using Trafilatura with authentication",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -69,63 +205,78 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('api.log'),
         logging.StreamHandler()
     ]
 )
 
-class ScrapeRequest(BaseModel):
-    url: str
-    include_raw_text: bool = True
-    include_metadata: bool = True
-
-# User model for authentication
-class User(BaseModel):
-    username: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-    disabled: Optional[bool] = None
-
-class UserInDB(User):
-    hashed_password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-class TokenData(BaseModel):
-    username: Optional[str] = None
-
-class ScrapeResponse(BaseModel):
-    success: bool
-    data: Optional[Dict[str, Any]] = None
-    text_content: Optional[str] = None
-    error: Optional[str] = None
-    url: str
+# ============================================================================
+# PUBLIC ENDPOINTS (No authentication required)
+# ============================================================================
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint - Public access"""
     return {
         "message": "Trafilatura Scraper API",
         "version": "1.0.0",
+        "authentication": "required for /scrape and /batch-scrape endpoints",
         "endpoints": {
-            "/scrape": "POST - Scrape a URL",
-            "/batch-scrape": "POST - Scrape multiple URLs",
-            "/health": "GET - Health check"
+            "/token": "POST - Get authentication token (username: testuser, password: testpassword)",
+            "/health": "GET - Health check (public)",
+            "/scrape": "POST - Scrape a URL (requires authentication)",
+            "/batch-scrape": "POST - Scrape multiple URLs (requires authentication)"
         }
     }
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint - Public access"""
     return {"status": "healthy", "service": "trafilatura-scraper-api"}
 
+# ============================================================================
+# AUTHENTICATION ENDPOINT
+# ============================================================================
+
+@app.post("/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Login endpoint to get an access token.
+    
+    Default credentials:
+    - username: testuser
+    - password: testpassword
+    """
+    user = authenticate_user(FAKE_USERS_DB, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# ============================================================================
+# PROTECTED ENDPOINTS (Authentication required)
+# ============================================================================
+
 @app.post("/scrape", response_model=ScrapeResponse)
-async def scrape_article(request: ScrapeRequest):
-    """Scrape an article from a URL using Trafilatura"""
+async def scrape_article(
+    request: ScrapeRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Scrape an article from a URL using Trafilatura.
+    
+    **Requires authentication** - Include your access token in the Authorization header.
+    """
     try:
-        logging.info(f"Received scrape request for URL: {request.url}")
+        logging.info(f"User '{current_user.username}' requested scrape for URL: {request.url}")
 
         # Call the scraper function
         article_data, text_content = trafilatura_scraper.scrape_article_with_trafilatura(request.url)
@@ -151,7 +302,6 @@ async def scrape_article(request: ScrapeRequest):
         return response_data
 
     except HTTPException:
-        # Re-raise HTTPExceptions as they are already properly formatted
         raise
     except Exception as e:
         error_msg = f"Error scraping URL {request.url}: {str(e)}"
@@ -161,116 +311,19 @@ async def scrape_article(request: ScrapeRequest):
             detail=error_msg
         )
 
-# Authentication utilities
-def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password: str):
-    return pwd_context.hash(password)
-
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
-        return UserInDB(**user_dict)
-    return None
-
-def authenticate_user(fake_db, username: str, password: str):
-    user = get_user(fake_db, username)
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except JWTError:
-        raise credentials_exception
-
-    # In a real application, you would get the user from a database
-    fake_users_db = {
-        "testuser": {
-            "username": "testuser",
-            "full_name": "Test User",
-            "email": "test@example.com",
-            "hashed_password": get_password_hash("testpassword"),
-            "disabled": False,
-        }
-    }
-
-    if token_data.username is None:
-        raise credentials_exception
-
-    user = get_user(fake_users_db, username=token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
-
-async def get_current_active_user(current_user: User = Depends(get_current_user)):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
-
-# Add authentication endpoints
-@app.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    # Mock user database - in production, this would be a real database
-    fake_users_db = {
-        "testuser": {
-            "username": "testuser",
-            "full_name": "Test User",
-            "email": "test@example.com",
-            "hashed_password": get_password_hash("testpassword"),
-            "disabled": False,
-        }
-    }
-
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-# Add batch processing endpoint
-class BatchScrapeRequest(BaseModel):
-    urls: list[str]
-    include_raw_text: bool = True
-    include_metadata: bool = True
-
 @app.post("/batch-scrape", response_model=list[ScrapeResponse])
-async def batch_scrape_articles(request: BatchScrapeRequest):
-    """Scrape multiple articles from URLs using Trafilatura"""
+async def batch_scrape_articles(
+    request: BatchScrapeRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Scrape multiple articles from URLs using Trafilatura.
+    
+    **Requires authentication** - Include your access token in the Authorization header.
+    """
     results = []
+
+    logging.info(f"User '{current_user.username}' requested batch scrape for {len(request.urls)} URLs")
 
     for url in request.urls:
         try:
