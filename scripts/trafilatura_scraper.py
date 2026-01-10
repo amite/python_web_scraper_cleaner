@@ -1,10 +1,9 @@
-import trafilatura
 import json
 import os
 import re
 import logging
+import argparse
 from datetime import datetime
-import requests
 
 def scrape_article_with_trafilatura(url):
     """
@@ -12,6 +11,16 @@ def scrape_article_with_trafilatura(url):
     Returns structured data and clean text
     """
     try:
+        try:
+            import trafilatura
+        except ModuleNotFoundError as e:
+            error_msg = (
+                "Missing dependency 'trafilatura'. Install it and retry "
+                "(e.g. `pip install trafilatura`)."
+            )
+            logging.error(error_msg)
+            return None, error_msg
+
         logging.info(f"Starting scrape job for URL: {url}")
 
         # Set up headers with User-Agent
@@ -30,6 +39,7 @@ def scrape_article_with_trafilatura(url):
             # If trafilatura fails, try with requests library
             if not downloaded:
                 try:
+                    import requests
                     response = requests.get(url, headers=headers, timeout=30)
                     response.raise_for_status()
                     downloaded = response.text
@@ -135,6 +145,58 @@ def slugify(text):
 
     return slug or "untitled"
 
+def reflow_text_to_markdown_paragraphs(text, *, max_sentences_per_paragraph=4, max_chars_per_paragraph=900):
+    """
+    Convert trafilatura plain-text output into nicer Markdown paragraphs.
+
+    Trafilatura often returns one sentence per line. In Markdown, single newlines
+    are rendered as spaces, so we reflow lines into paragraphs separated by blank
+    lines (double newlines).
+    """
+    if not text:
+        return ""
+
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    raw_lines = [ln.strip() for ln in text.split("\n")]
+
+    # If the text already contains blank lines, treat them as paragraph breaks
+    if any(ln == "" for ln in raw_lines):
+        paragraphs = []
+        buf = []
+        for ln in raw_lines:
+            if ln == "":
+                if buf:
+                    paragraphs.append(" ".join(buf).strip())
+                    buf = []
+                continue
+            buf.append(ln)
+        if buf:
+            paragraphs.append(" ".join(buf).strip())
+        return "\n\n".join(p for p in paragraphs if p).strip()
+
+    # Otherwise, create readable paragraphs by grouping consecutive lines
+    lines = [ln for ln in raw_lines if ln]
+    paragraphs = []
+    buf = []
+    sentence_count = 0
+    char_count = 0
+
+    for ln in lines:
+        buf.append(ln)
+        sentence_count += 1
+        char_count += len(ln) + 1
+
+        if sentence_count >= max_sentences_per_paragraph or char_count >= max_chars_per_paragraph:
+            paragraphs.append(" ".join(buf).strip())
+            buf = []
+            sentence_count = 0
+            char_count = 0
+
+    if buf:
+        paragraphs.append(" ".join(buf).strip())
+
+    return "\n\n".join(p for p in paragraphs if p).strip()
+
 def format_article_markdown(data, text):
     """Format the article data into readable markdown"""
     markdown_parts = []
@@ -168,7 +230,8 @@ def format_article_markdown(data, text):
             tags = [tags]
         markdown_parts.append(f"**Tags:** {', '.join(tags)}")
 
-    markdown_parts.append(f"\n---\n\n## Article Content\n\n{text}")
+    formatted_text = reflow_text_to_markdown_paragraphs(text)
+    markdown_parts.append(f"\n---\n\n## Article Content\n\n{formatted_text}")
 
     return '\n'.join(markdown_parts)
 
@@ -183,12 +246,40 @@ def setup_logging():
         ]
     )
 
-def main():
+def build_arg_parser():
+    parser = argparse.ArgumentParser(
+        prog="trafilatura_scraper.py",
+        description="Scrape an article URL using Trafilatura and save JSON/Markdown/Text outputs.",
+        epilog=(
+            "Examples:\n"
+            "  uv run scripts/trafilatura_scraper.py https://example.com/article\n"
+            "  uv run scripts/trafilatura_scraper.py https://example.com/article --output-dir data/output\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "url",
+        nargs="?",
+        help="Article URL to scrape. If omitted, you'll be prompted.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=os.path.join("data", "output"),
+        help="Directory to write output files (default: %(default)s).",
+    )
+    return parser
+
+
+def main(argv=None):
     # Setup logging
     setup_logging()
 
-    # Get URL from user input
-    url = input("Enter the URL to scrape: ").strip()
+    args = build_arg_parser().parse_args(argv)
+
+    # Get URL from args, or prompt interactively
+    url = (args.url or "").strip()
+    if not url:
+        url = input("Enter the URL to scrape: ").strip()
     if not url:
         print("Error: No URL provided")
         logging.error("No URL provided by user")
@@ -214,8 +305,9 @@ def main():
 
     # Create output directory
     try:
-        os.makedirs('data', exist_ok=True)
-        logging.info(f"Job {job_id} created output directory")
+        output_dir = args.output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        logging.info(f"Job {job_id} ensured output directory exists: {output_dir}")
     except Exception as e:
         error_msg = f"Failed to create output directory: {str(e)}"
         logging.error(f"Job {job_id} directory creation failed: {error_msg}")
@@ -228,7 +320,7 @@ def main():
 
     # Save structured JSON
     try:
-        json_path = f'data/{slug}.json'
+        json_path = os.path.join(output_dir, f"{slug}.json")
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(article_data, f, indent=2, ensure_ascii=False)
         logging.info(f"Job {job_id} saved structured JSON to {json_path}")
@@ -241,7 +333,7 @@ def main():
     # Save formatted markdown
     try:
         markdown_content = format_article_markdown(article_data, text_content)
-        md_path = f'data/{slug}.md'
+        md_path = os.path.join(output_dir, f"{slug}.md")
         with open(md_path, 'w', encoding='utf-8') as f:
             f.write(markdown_content)
         logging.info(f"Job {job_id} saved formatted markdown to {md_path}")
@@ -253,7 +345,7 @@ def main():
 
     # Save plain text
     try:
-        txt_path = f'data/{slug}.txt'
+        txt_path = os.path.join(output_dir, f"{slug}.txt")
         with open(txt_path, 'w', encoding='utf-8') as f:
             if text_content:
                 f.write(text_content)
