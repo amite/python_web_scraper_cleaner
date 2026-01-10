@@ -76,16 +76,75 @@ git clone https://github.com/your-repo/scraper_cleaner.git
 cd scraper_cleaner
 
 # Install dependencies
-pip install -r requirements.txt
-# or using uv
 uv pip install
 ```
 
-## Usage
+### Global CLI Installation (Recommended)
 
-### Command Line Interface
+Install `html-cleaner` as a global command using `pipx`:
 
 ```bash
+# Install globally (WSL/Linux)
+pipx install -e /path/to/scraper_cleaner
+
+# Or if you're in the repo directory
+pipx install -e .
+
+# Verify installation
+html-cleaner --help
+```
+
+**Note**: Ensure `~/.local/bin` is on your PATH. `pipx` typically handles this automatically, but you may need to add it manually:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+For more details, see [artifacts/html_cleaner_docs.md](artifacts/html_cleaner_docs.md).
+
+## Usage
+
+### HTML Cleaner CLI (`html-cleaner`)
+
+The `html-cleaner` command provides a modern CLI for cleaning local HTML files:
+
+```bash
+# Default: batch process ./data/html -> ./data/output
+html-cleaner
+
+# Batch process with custom directories
+html-cleaner --input-dir /path/to/html --output-dir /path/to/output
+
+# Interactive file selector
+html-cleaner select
+
+# Process a single file
+html-cleaner file input.html --output output.md
+
+# Batch subcommand with options
+html-cleaner batch --output-format txt --limit 10 --no-overwrite
+```
+
+**Commands:**
+- `html-cleaner` (no args): Batch process with cwd-relative defaults
+- `html-cleaner batch`: Batch process a directory of HTML files
+- `html-cleaner file INPUT.html`: Process a single HTML file
+- `html-cleaner select`: Interactive multi-select from input directory
+
+**Key Features:**
+- Flat output directory layout (collision-safe hash-based naming)
+- Overwrite by default (use `--no-overwrite` to skip existing files)
+- CWD-relative defaults (works from any directory)
+- Interactive file selection with checkbox UI
+
+For detailed usage, see [artifacts/html_cleaner_docs.md](artifacts/html_cleaner_docs.md).
+
+### Legacy Script (Backwards Compatible)
+
+```bash
+# Legacy script interface (still supported)
+python scripts/html_cleaner.py
+
 # Run the main scraper (interactive)
 python trafilatura_scraper.py
 
