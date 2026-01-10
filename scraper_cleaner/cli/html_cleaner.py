@@ -28,6 +28,23 @@ app = typer.Typer(
 )
 console = Console()
 
+def _coerce_selected_to_paths(selected: list[object], *, input_dir: Path) -> list[Path]:
+    """Normalize questionary checkbox values into absolute Paths.
+
+    Questionary commonly returns the `Choice.value` items, but depending on terminal /
+    prompt-toolkit behavior it can also yield strings. This helper makes the CLI robust.
+    """
+    out: list[Path] = []
+    for item in selected:
+        if isinstance(item, Path):
+            p = item
+        else:
+            p = Path(str(item))
+        if not p.is_absolute():
+            p = (input_dir / p).resolve()
+        out.append(p)
+    return out
+
 
 def setup_logging(level: str = "INFO") -> None:
     """Setup logging with Rich handler."""
@@ -155,6 +172,9 @@ def batch(
 
         raise typer.Exit(0 if failed == 0 else 1)
 
+    except typer.Exit:
+        # Let Typer/Click handle the intended exit code without logging as an error.
+        raise
     except Exception as e:
         logger.error(f"Batch processing failed: {e}", exc_info=True)
         raise typer.Exit(2)
@@ -244,8 +264,10 @@ def file(
             )
             logger.info(f"Wrote output to: {out_path}")
 
-        raise typer.Exit(0)
+        return
 
+    except typer.Exit:
+        raise
     except Exception as e:
         logger.error(f"Failed to process {input_file}: {e}", exc_info=True)
         raise typer.Exit(2)
@@ -339,18 +361,29 @@ def select(
             instruction="(Use arrow keys to navigate, space to select, enter to confirm)",
         ).ask()
 
-        if not selected:
-            console.print("[yellow]No files selected. Exiting.[/yellow]")
+        if selected is None:
+            # Happens on Ctrl+C, EOF, or non-interactive stdin.
+            console.print("\n[yellow]Selection cancelled.[/yellow]")
+            raise typer.Exit(0)
+        if len(selected) == 0:
+            console.print(
+                "[yellow]No files selected. Exiting. "
+                "(Tip: press Space to select files, then Enter)[/yellow]"
+            )
             raise typer.Exit(0)
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Selection cancelled.[/yellow]")
         raise typer.Exit(0)
+    except typer.Exit:
+        raise
     except Exception as e:
         logger.error(f"Selection failed: {e}", exc_info=True)
         raise typer.Exit(2)
 
-    logger.info(f"Processing {len(selected)} selected files")
+    selected_files = _coerce_selected_to_paths(selected, input_dir=input_path)
+
+    logger.info(f"Processing {len(selected_files)} selected files")
     logger.info(f"Output directory: {output_path}")
     logger.info(f"Format: {format_normalized}, Overwrite: {overwrite}")
 
@@ -364,7 +397,7 @@ def select(
             include_tables=not no_tables,
             include_comments=include_comments,
             flat_output=True,
-            input_files=selected,
+            input_files=selected_files,
         )
 
         ok = sum(1 for r in results if r.ok)
@@ -379,6 +412,8 @@ def select(
 
         raise typer.Exit(0 if failed == 0 else 1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         logger.error(f"Batch processing failed: {e}", exc_info=True)
         raise typer.Exit(2)
@@ -491,6 +526,8 @@ def default(
 
         raise typer.Exit(0 if failed == 0 else 1)
 
+    except typer.Exit:
+        raise
     except Exception as e:
         logger.error(f"Batch processing failed: {e}", exc_info=True)
         raise typer.Exit(2)
