@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from api.main import app
-import trafilatura_scraper
+import scraper_cleaner.cli.trafilatura_scraper as trafilatura_scraper
 
 # Create test client
 client = TestClient(app)

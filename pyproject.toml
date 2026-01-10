@@ -33,6 +33,8 @@ dependencies = [
 
 [project.scripts]
 html-cleaner = "scraper_cleaner.cli.html_cleaner:app"
+trafilatura-scraper = "scraper_cleaner.cli.trafilatura_scraper:main"
+trif = "scraper_cleaner.cli.trafilatura_scraper:main"
 
 [dependency-groups]
 dev = ["hatchling>=1.28.0"]

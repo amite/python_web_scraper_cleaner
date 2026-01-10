@@ -1,8 +1,12 @@
 import pytest
 import json
 from unittest.mock import patch, MagicMock
-from trafilatura_scraper import scrape_article_with_trafilatura, slugify, format_article_markdown
-import trafilatura
+import scraper_cleaner.cli.trafilatura_scraper as trafilatura_scraper
+from scraper_cleaner.cli.trafilatura_scraper import (
+    scrape_article_with_trafilatura,
+    slugify,
+    format_article_markdown,
+)
 
 def test_slugify_function():
     """Test the slugify function with various inputs"""
@@ -25,6 +29,14 @@ def test_slugify_function():
 
     # Test with multiple spaces
     assert slugify("Hello    World") == "hello_world"
+
+
+def test_trif_exit_command_exits_without_scraping(capsys):
+    with patch.object(trafilatura_scraper, "scrape_article_with_trafilatura") as mock_scrape:
+        trafilatura_scraper.main(["/quit"])
+        mock_scrape.assert_not_called()
+    out = capsys.readouterr().out
+    assert "Exiting." in out
 
 def test_format_article_markdown():
     """Test the markdown formatting function"""

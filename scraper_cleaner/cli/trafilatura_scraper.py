@@ -5,6 +5,7 @@ import logging
 import argparse
 from datetime import datetime
 
+
 def scrape_article_with_trafilatura(url):
     """
     Scrape article using Trafilatura library
@@ -25,10 +26,10 @@ def scrape_article_with_trafilatura(url):
 
         # Set up headers with User-Agent
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Referer': 'https://www.google.com/',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Referer": "https://www.google.com/",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
 
         # Download the webpage with custom headers
@@ -40,12 +41,17 @@ def scrape_article_with_trafilatura(url):
             if not downloaded:
                 try:
                     import requests
+
                     response = requests.get(url, headers=headers, timeout=30)
                     response.raise_for_status()
                     downloaded = response.text
-                    logging.info(f"Downloaded {url} using requests with custom User-Agent")
+                    logging.info(
+                        f"Downloaded {url} using requests with custom User-Agent"
+                    )
                 except Exception as e:
-                    error_msg = f"Both trafilatura and requests failed to download: {str(e)}"
+                    error_msg = (
+                        f"Both trafilatura and requests failed to download: {str(e)}"
+                    )
                     logging.error(f"Download failed for {url}: {error_msg}")
                     return None, error_msg
         except Exception as e:
@@ -57,12 +63,12 @@ def scrape_article_with_trafilatura(url):
         try:
             result_json = trafilatura.extract(
                 downloaded,
-                output_format='json',
+                output_format="json",
                 with_metadata=True,
                 include_comments=False,
                 include_tables=True,
                 include_images=False,  # Set to True if you want image URLs
-                include_links=False
+                include_links=False,
             )
 
             if not result_json:
@@ -85,10 +91,7 @@ def scrape_article_with_trafilatura(url):
         # Extract plain text version
         try:
             text_content = trafilatura.extract(
-                downloaded,
-                output_format='txt',
-                with_metadata=False,
-                include_comments=False
+                downloaded, output_format="txt", with_metadata=False, include_comments=False
             )
         except Exception as e:
             error_msg = f"Text extraction error: {str(e)}"
@@ -112,7 +115,7 @@ def scrape_article_with_trafilatura(url):
             "text": article_data.get("text"),
             "raw_text": text_content,
             "source": article_data.get("source"),
-            "source_hostname": article_data.get("source-hostname")
+            "source_hostname": article_data.get("source-hostname"),
         }
 
         logging.info(f"Successfully scraped article from {url}")
@@ -123,6 +126,7 @@ def scrape_article_with_trafilatura(url):
         logging.error(f"Unexpected error scraping {url}: {error_msg}")
         return None, error_msg
 
+
 def slugify(text):
     """Convert text to a URL-friendly slug"""
     if not text:
@@ -132,12 +136,12 @@ def slugify(text):
     slug = text.lower()
 
     # Remove special characters and replace spaces with underscores
-    slug = re.sub(r'[^\w\s-]', '', slug)  # Remove special chars
-    slug = re.sub(r'[\s]+', '_', slug)    # Replace spaces with underscores
-    slug = re.sub(r'[-]+', '_', slug)     # Replace multiple hyphens with single underscore
+    slug = re.sub(r"[^\w\s-]", "", slug)  # Remove special chars
+    slug = re.sub(r"[\s]+", "_", slug)  # Replace spaces with underscores
+    slug = re.sub(r"[-]+", "_", slug)  # Replace multiple hyphens with single underscore
 
     # Remove leading/trailing underscores
-    slug = slug.strip('_')
+    slug = slug.strip("_")
 
     # Limit length to reasonable size
     if len(slug) > 100:
@@ -145,7 +149,10 @@ def slugify(text):
 
     return slug or "untitled"
 
-def reflow_text_to_markdown_paragraphs(text, *, max_sentences_per_paragraph=4, max_chars_per_paragraph=900):
+
+def reflow_text_to_markdown_paragraphs(
+    text, *, max_sentences_per_paragraph=4, max_chars_per_paragraph=900
+):
     """
     Convert trafilatura plain-text output into nicer Markdown paragraphs.
 
@@ -186,7 +193,10 @@ def reflow_text_to_markdown_paragraphs(text, *, max_sentences_per_paragraph=4, m
         sentence_count += 1
         char_count += len(ln) + 1
 
-        if sentence_count >= max_sentences_per_paragraph or char_count >= max_chars_per_paragraph:
+        if (
+            sentence_count >= max_sentences_per_paragraph
+            or char_count >= max_chars_per_paragraph
+        ):
             paragraphs.append(" ".join(buf).strip())
             buf = []
             sentence_count = 0
@@ -196,6 +206,7 @@ def reflow_text_to_markdown_paragraphs(text, *, max_sentences_per_paragraph=4, m
         paragraphs.append(" ".join(buf).strip())
 
     return "\n\n".join(p for p in paragraphs if p).strip()
+
 
 def format_article_markdown(data, text):
     """Format the article data into readable markdown"""
@@ -217,14 +228,14 @@ def format_article_markdown(data, text):
         markdown_parts.append(f"\n## Summary\n{data['description']}\n")
 
     if data.get("categories"):
-        categories = data['categories']
+        categories = data["categories"]
         # Ensure categories is a list
         if isinstance(categories, str):
             categories = [categories]
         markdown_parts.append(f"**Categories:** {', '.join(categories)}")
 
     if data.get("tags"):
-        tags = data['tags']
+        tags = data["tags"]
         # Ensure tags is a list
         if isinstance(tags, str):
             tags = [tags]
@@ -233,18 +244,17 @@ def format_article_markdown(data, text):
     formatted_text = reflow_text_to_markdown_paragraphs(text)
     markdown_parts.append(f"\n---\n\n## Article Content\n\n{formatted_text}")
 
-    return '\n'.join(markdown_parts)
+    return "\n".join(markdown_parts)
+
 
 def setup_logging():
     """Setup logging configuration"""
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('scraper.log'),
-            logging.StreamHandler()
-        ]
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler("scraper.log"), logging.StreamHandler()],
     )
+
 
 def build_arg_parser():
     parser = argparse.ArgumentParser(
@@ -323,13 +333,13 @@ def main(argv=None):
         return
 
     # Generate slug from article title
-    article_title = article_data.get('title', 'untitled_article')
+    article_title = article_data.get("title", "untitled_article")
     slug = slugify(article_title)
 
     # Save structured JSON
     try:
         json_path = os.path.join(output_dir, f"{slug}.json")
-        with open(json_path, 'w', encoding='utf-8') as f:
+        with open(json_path, "w", encoding="utf-8") as f:
             json.dump(article_data, f, indent=2, ensure_ascii=False)
         logging.info(f"Job {job_id} saved structured JSON to {json_path}")
         print(f"✓ Structured JSON saved to {json_path}")
@@ -342,7 +352,7 @@ def main(argv=None):
     try:
         markdown_content = format_article_markdown(article_data, text_content)
         md_path = os.path.join(output_dir, f"{slug}.md")
-        with open(md_path, 'w', encoding='utf-8') as f:
+        with open(md_path, "w", encoding="utf-8") as f:
             f.write(markdown_content)
         logging.info(f"Job {job_id} saved formatted markdown to {md_path}")
         print(f"✓ Formatted markdown saved to {md_path}")
@@ -354,7 +364,7 @@ def main(argv=None):
     # Save plain text
     try:
         txt_path = os.path.join(output_dir, f"{slug}.txt")
-        with open(txt_path, 'w', encoding='utf-8') as f:
+        with open(txt_path, "w", encoding="utf-8") as f:
             if text_content:
                 f.write(text_content)
             else:
@@ -367,33 +377,34 @@ def main(argv=None):
         print(f"✗ Failed to save text: {error_msg}")
 
     # Print summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("ARTICLE SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print(f"Title: {article_data.get('title', 'N/A')}")
     print(f"Author: {article_data.get('author', 'N/A')}")
     print(f"Published: {article_data.get('date', 'N/A')}")
     print(f"Source: {article_data.get('sitename', 'N/A')}")
     print(f"Language: {article_data.get('language', 'N/A')}")
 
-    if article_data.get('categories'):
+    if article_data.get("categories"):
         print(f"Categories: {', '.join(article_data['categories'])}")
 
-    if article_data.get('tags'):
+    if article_data.get("tags"):
         print(f"Tags: {', '.join(article_data['tags'])}")
 
     if text_content:
         print(f"\nText length: {len(text_content)} characters")
         print(f"Word count: ~{len(text_content.split())} words")
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("PREVIEW (first 500 characters)")
-        print("="*60)
+        print("=" * 60)
         print(text_content[:500] + "...\n")
     else:
         print("\nNo text content available for preview")
 
     logging.info(f"Job {job_id} completed successfully")
+
 
 if __name__ == "__main__":
     main()

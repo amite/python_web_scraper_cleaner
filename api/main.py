@@ -4,8 +4,6 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, field_validator
 import logging
 from typing import Optional, Dict, Any
-import importlib.util
-import sys
 import os
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -16,19 +14,8 @@ import hashlib
 # Load environment variables from .env file for local development
 load_dotenv()
 
-# Import the scraper functions
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(parent_dir)
-
-# Import trafilatura_scraper functions
-spec = importlib.util.spec_from_file_location("trafilatura_scraper", os.path.join(parent_dir, "trafilatura_scraper.py"))
-if spec is None:
-    raise ImportError("Could not create module specification for trafilatura_scraper")
-if spec.loader is None:
-    raise ImportError("Module specification has no loader for trafilatura_scraper")
-trafilatura_scraper = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(trafilatura_scraper)
+# Import trafilatura_scraper functions from the installed package
+import scraper_cleaner.cli.trafilatura_scraper as trafilatura_scraper
 
 # Security configuration
 SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-change-this-in-production")

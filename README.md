@@ -34,7 +34,8 @@ scraper_cleaner/
 ├── artifacts/           # Documentation and status files
 ├── data/                # Output directory for scraped content
 ├── main.py              # Original scraping script (Scroll.in specific)
-├── trafilatura_scraper.py # Core scraping library
+├── scripts/
+│   └── trafilatura_scraper.py # Trafilatura scraper script
 ├── pyproject.toml       # Project dependencies and configuration
 ├── README.md            # This documentation
 └── .gitignore           # Git ignore rules
@@ -42,7 +43,7 @@ scraper_cleaner/
 
 ## Components
 
-### 1. `trafilatura_scraper.py` - Core Scraping Engine
+### 1. Trafilatura scraper (`trif`)
 
 The main scraping module that provides:
 
@@ -145,8 +146,8 @@ For detailed usage, see [artifacts/html_cleaner_docs.md](artifacts/html_cleaner_
 # Legacy script interface (still supported)
 python scripts/html_cleaner.py
 
-# Run the main scraper (interactive)
-python trafilatura_scraper.py
+# Run the Trafilatura scraper (interactive)
+trif
 
 # Run the Scroll.in specific scraper
 python main.py
