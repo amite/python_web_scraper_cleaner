@@ -1,4 +1,4 @@
-This is a concise Product Requirements Document (PRD) designed to be pasted into Claude. It provides the technical context of your existing project and clear instructions for building the server using modern 2026 standards.
+This is a concise Product Requirements Document (PRD).It provides the technical context of your existing project and clear instructions for building the server using modern 2026 standards.
 
 ---
 
@@ -23,7 +23,7 @@ This is a concise Product Requirements Document (PRD) designed to be pasted into
 
 ## 3. Data Schema & Requirements
 
-The server must interface with the following file patterns in `data/output/`:
+The server must interface with the following file patterns in `data/news_output/`:
 
 * **Markdown (.md):** Cleaned article content.
 

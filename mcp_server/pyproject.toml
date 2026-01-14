@@ -1,0 +1,9 @@
+[project]
+name = "news-mcp-server"
+version = "0.1.0"
+description = "A local MCP server for news articles"
+requires-python = ">=3.12"
+dependencies = ["fastmcp", "requests", "jinja2"]
+
+[dependency-groups]
+dev = []

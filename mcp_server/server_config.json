@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "news": {
+      "command": "uv",
+      "args": ["run", "news_server.py"]
+    }
+  }
+}

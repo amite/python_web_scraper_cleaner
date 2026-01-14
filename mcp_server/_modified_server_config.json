@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "news": {
+      "name": "news",
+      "command": "uv",
+      "args": [
+        "run",
+        "news_server.py"
+      ],
+      "env": {
+        "PATH": "/home/amite/.cache/uv/archive-v0/5sH_-yPC8eBxX6aOChMy_/bin:/home/amite/code/python/scraper_cleaner/.venv/bin:/home/amite/.opencode/bin:/home/amite/.config/composer/vendor/bin:/home/amite/.config/herd-lite/bin:/home/amite/.bun/bin:/home/amite/.local/bin:/home/amite/.antigravity-server/bin/450b6b28083d737992adc5d19637f22c95ffba7b/bin/remote-cli:/home/amite/.local/bin:/home/amite/.opencode/bin:/home/amite/.nvm/versions/node/v24.11.1/bin:/home/amite/.cargo/bin:/home/amite/.config/composer/vendor/bin:/home/amite/.config/herd-lite/bin:/home/amite/.bun/bin:/home/amite/.cabal/bin:/home/amite/.ghcup/bin:/home/amite/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Program Files/Alacritty/:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR:/mnt/c/Program Files/cursor/resources/app/bin:/mnt/c/Program Files/Alacritty/:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR:/mnt/c/Program Files/cursor/resources/app/bin:/mnt/c/Users/amite/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/amite/AppData/Local/Programs/Ollama:/mnt/c/Users/amite/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/amite/AppData/Local/Programs/Antigravity/bin:/mnt/c/Users/amite/AppData/Local/Programs/Zed/bin:/mnt/c/Users/amite/.bun/bin:/snap/bin:/home/amite/code/python/personal-triage-agent/utils/nu-scripts:/home/amite/tools/context-engine:/home/amite/.antigravity-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/home/amite/code/python/personal-triage-agent/utils/nu-scripts:/home/amite/tools/context-engine",
+        "PYTHONWARNINGS": "ignore",
+        "LOG_LEVEL": "WARNING",
+        "CHUK_LOG_LEVEL": "WARNING",
+        "MCP_LOG_LEVEL": "WARNING"
+      }
+    }
+  },
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-4",
+  "theme": "default",
+  "verbose": true,
+  "confirmTools": true
+}

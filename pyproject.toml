@@ -31,6 +31,8 @@ dependencies = [
     "rich>=14.2.0",
     # "news-please>=1.6.16",
     "newspaper4k[gnews]>=0.9.3.1",
+    "jinja2>=3.1.6",
+    "fastmcp>=2.14.3",
 ]
 
 [project.scripts]

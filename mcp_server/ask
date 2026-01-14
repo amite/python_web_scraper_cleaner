@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper script to run ask_question.py without virtual environment warnings
+
+unset VIRTUAL_ENV
+cd "$(dirname "$0")"
+uv run ask_question.py "$@"

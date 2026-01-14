@@ -1,0 +1,9 @@
+#!/bin/bash
+# Start the web UI for news Q&A
+
+# Change to the project root directory (parent of mcp_server)
+cd "$(dirname "$0")/.."
+echo "🚀 Starting News Q&A Web Interface..."
+echo "📍 Open http://localhost:8001 in your browser"
+echo ""
+uv run mcp_server/web_ui.py
